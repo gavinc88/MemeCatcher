@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">MemeCatcher</string>
 
+    <string name="jump_button">Jump</string>
+
     <string name="dummy_button">Dummy Button</string>
     <string name="dummy_content">DUMMY\nCONTENT</string>
 </resources>
