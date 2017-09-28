@@ -76,20 +76,20 @@ public class GameBoard extends View {
         starField = null;
     }
 
-    //expose sprite bounds to controller
-    synchronized public int getSprite1Width() {
+    // expose sprite bounds to controller
+    synchronized public int getMemeWidth() {
         return memeBounds.width();
     }
 
-    synchronized public int getSprite1Height() {
+    synchronized public int getMemeHeight() {
         return memeBounds.height();
     }
 
-    synchronized public int getSprite2Width() {
+    synchronized public int getDogeWidth() {
         return dogeBounds.width();
     }
 
-    synchronized public int getSprite2Height() {
+    synchronized public int getDogeHeight() {
         return dogeBounds.height();
     }
 
