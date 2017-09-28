@@ -295,6 +295,8 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
             if (dogeNewPosition.y > dogeMaxY) {
                 // return doge to original position if it overshoots
                 dogeNewPosition.y = dogeMaxY;
+                performJump = false;
+                button.setEnabled(true);
             }
 
             gameBoard.setMemePosition(memeNewPosition.x, memeNewPosition.y);
@@ -313,11 +315,6 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
             frameCount = 0;
         } else {
             float currentTimeInSec = frameCount * getFrameTime();
-//            Log.i(TAG, "FRAME " + frameCount);
-//            Log.i(TAG, "updateDogeVelocity: currentTime = " + currentTimeInSec + "sec");
-//            Log.i(TAG, "updateDogeVelocity: frameTime = " + getFrameTime() + "sec");
-//
-//            Log.i(TAG, "updateDogeVelocity: reachedJumpPeak = " + reachedJumpPeak);
             if (!reachedJumpPeak) {
                 // doge going up
 
@@ -334,12 +331,6 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                 // convert meter back to pixel to get change in y
                 dogeVelocity.y = (int) -(dogeDYInMeters * pixelToMeterRatio);
 
-                // LOGS
-//                Log.i(TAG, "updateDogeVelocity: initialVelocityInMeterPerSec = " + initialVelocityInMeterPerSec + "m/sec");
-//                Log.i(TAG, "updateDogeVelocity: currentVelocityInMeterPerSec = " + currentVelocityInMeterPerSec + "m/sec");
-//                Log.i(TAG, "updateDogeVelocity: dogeDYInMeters = " + dogeDYInMeters + "m");
-//                Log.i(TAG, "updateDogeVelocity: dogeVelocityY = " + dogeVelocity.y + "px");
-
                 frameCount++;
 
                 if (currentVelocityInMeterPerSec < 0) {
@@ -350,11 +341,9 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
 
             } else {
                 // doge coming back down
-                double initialVelocityInMeterPerSec = 0;
-                float acceleration = GRAVITY;
 
                 // current v = initial v + a * t; initial v = 0
-                double currentVelocityInMeterPerSec = acceleration * currentTimeInSec;
+                double currentVelocityInMeterPerSec = GRAVITY * currentTimeInSec;
 
                 // rate = d / t ; d = rate * time
                 double dogeDYInMeters = currentVelocityInMeterPerSec * getFrameTime();
@@ -362,29 +351,8 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                 // convert meter back to pixel to get change in y
                 dogeVelocity.y = (int) (dogeDYInMeters * pixelToMeterRatio);
 
-//                Log.i(TAG, "updateDogeVelocity: initialVelocityInMeterPerSec = " + initialVelocityInMeterPerSec + "m/sec");
-//                Log.i(TAG, "updateDogeVelocity: currentVelocityInMeterPerSec = " + currentVelocityInMeterPerSec + "m/sec");
-//                Log.i(TAG, "updateDogeVelocity: dogeDYInMeters = " + dogeDYInMeters + "m");
-//                Log.i(TAG, "updateDogeVelocity: dogeVelocityY = " + dogeVelocity.y + "px");
-
                 frameCount++;
-
-                double initialVelocityInMeters = Math.sqrt(2 * GRAVITY * jumpRange / pixelToMeterRatio);
-                // time to reach the top = v / g
-                double totalTimeInSec = initialVelocityInMeters / GRAVITY;
-
-                if (currentTimeInSec > totalTimeInSec) {
-                    Log.i(TAG, "performJump: doge returned to original position");
-                    // doge returned to original position
-                    dogeVelocity.y = 0;
-                    performJump = false;
-                    button.setEnabled(true);
-                }
             }
-
-//            int topSpace = gameBoard.getDogeY();
-//            int currentHeight = dogeMaxY - topSpace;
-//            Log.i(TAG, "updateDogeVelocity: currentHeight = " + currentHeight + "px");
         }
     }
 
