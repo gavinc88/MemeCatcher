@@ -28,9 +28,10 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
      * and a change of the status and navigation bar.
      */
     private static final int UI_ANIMATION_DELAY = 300;
+
     private static final long MAX_JUMP_PRESS_TIME = 1000;
     private static final float GRAVITY = 9.8f;
-    private static final int SCREEN_IN_METERS = 5;
+    private static final int SCREEN_IN_METERS = 2; //increase to slow down jump; decrease to speed up jump
 
     private final Handler handler = new Handler();
 
@@ -55,13 +56,16 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
     private boolean performJump;
     private boolean shouldResetGame;
     private boolean reachedJumpPeak;
+    private boolean hasPressedDown;
 
-    //Velocity includes the speed and the direction of our sprite motion
-    private Point memeVelocity;
-    private Point dogeVelocity;
+    // Velocity includes the speed and the direction of our sprite motion
+    private Point playerVelocity;
+    private Point targetVelocity;
+    private Point obstacle1Velocity;
+    private Point obstacle2Velocity;
+    private int playerMaxY; // player's starting position
     private int memeMaxX;
     private int memeMaxY;
-    private int dogeMaxY;
 
     //Divide the frame by 1000 to calculate how many times per second the screen will update.
     private static final int FRAMES_PER_SEC = 50;
@@ -137,6 +141,7 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
     public boolean onTouch(View v, MotionEvent event) {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN: {
+                hasPressedDown = true;
                 jumpStartTime = System.currentTimeMillis();;
                 Log.i(TAG, "onTouch: ACTION_DOWN");
                 Log.i(TAG, "jumpStartTime: " + jumpStartTime);
@@ -148,6 +153,10 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                     resetGame();
                     break;
                 }
+                if (!hasPressedDown) {
+                    break;
+                }
+                hasPressedDown = false;
                 long jumpReleaseTime = System.currentTimeMillis();;
                 long jumpTimeDiff = jumpReleaseTime - jumpStartTime;
                 Log.i(TAG, "jumpReleaseTime: " + jumpReleaseTime);
@@ -205,17 +214,17 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
 
     private Point getRandomVelocity() {
         Random r = new Random();
-        int min = 1;
-        int max = 5;
+        int min = getResources().getDimensionPixelSize(R.dimen.min_velocity);
+        int max = getResources().getDimensionPixelSize(R.dimen.max_velocity);
         int x = r.nextInt(max - min + 1) + min;
         int y = r.nextInt(max - min + 1) + min;
         return new Point(x, y);
     }
 
-    private Point getRandomPointForMeme() {
+    private Point getRandomPoint() {
         Random r = new Random();
         int minX = 0;
-        int maxX = gameBoard.getWidth() - gameBoard.getMemeWidth();
+        int maxX = gameBoard.getWidth() - gameBoard.getTargetWidth();
         int minY = 0;
         int maxY = button.getTop() - gameBoard.getDogeHeight() - getResources().getDimensionPixelSize(R.dimen.margin) * 2;
         int x = r.nextInt(maxX - minX + 1) + minX;
@@ -235,32 +244,47 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
         gameBoard.resetStarField();
         Point dogePosition = getDogeStartingPoint();
 
-        // pick a starting position for meme that doesn't overlap doge
+        // Pick starting positions for target and obstacle memes that don't overlap doge
         Point memePosition;
         do {
-            memePosition = getRandomPointForMeme();
-        } while (Math.abs(memePosition.x - dogePosition.x) < gameBoard.getMemeWidth());
+            memePosition = getRandomPoint();
+        } while (Math.abs(memePosition.x - dogePosition.x) < gameBoard.getDogeWidth()
+                && Math.abs(memePosition.y - dogePosition.y) < gameBoard.getDogeHeight());
 
-        gameBoard.setDogePosition(dogePosition.x, dogePosition.y);
-        gameBoard.setMemePosition(memePosition.x, memePosition.y);
+        Point obstacle1Position;
+        Point obstacle2Position;
+        do {
+            obstacle1Position = getRandomPoint();
+            obstacle2Position = getRandomPoint();
+        } while (Math.abs(obstacle1Position.y - dogePosition.y) < gameBoard.getDogeHeight()
+                && Math.abs(obstacle2Position.y - dogePosition.y) < gameBoard.getDogeHeight());
 
-        //Give the meme a random velocity
-        memeVelocity = getRandomVelocity();
+        gameBoard.setPlayerPosition(dogePosition.x, dogePosition.y);
+        gameBoard.setTargetPosition(memePosition.x, memePosition.y);
+        gameBoard.setObstacle1Position(obstacle1Position.x, obstacle1Position.y);
+        gameBoard.setObstacle2Position(obstacle2Position.x, obstacle2Position.y);
 
-        //Set our boundaries for the sprites
-        memeMaxX = gameBoard.getWidth() - gameBoard.getMemeWidth();
-        memeMaxY = gameBoard.getHeight() - gameBoard.getMemeHeight() - gameBoard.getDogeHeight() - button.getHeight() - margin;
-        dogeMaxY = button.getTop() - getResources().getDimensionPixelSize(R.dimen.margin) - gameBoard.getDogeHeight();
+        // Give the target meme a random velocity
+        targetVelocity = getRandomVelocity();
+        obstacle1Velocity = new Point(10, 20);
+        obstacle2Velocity = new Point(15, -10);
 
+        // Set our boundaries for the sprites
+        playerMaxY = button.getTop() - getResources().getDimensionPixelSize(R.dimen.margin) - gameBoard.getDogeHeight();
+        memeMaxX = gameBoard.getWidth() - gameBoard.getTargetWidth();
+        memeMaxY = gameBoard.getHeight() - gameBoard.getTargetHeight();
+
+        // Reset game conditions
+        shouldResetGame = false;
         button.setEnabled(true);
+        button.setText("Jump");
+        dummyText.setText("Press jump!");
+        score = 0;
+
+        // Start game
         frame.removeCallbacks(frameUpdate);
         gameBoard.invalidate();
         frame.postDelayed(frameUpdate, getFrameRate());
-
-        shouldResetGame = false;
-        dummyText.setText("Press jump!");
-        button.setText("Jump");
-        score = 0;
     }
 
     private Runnable frameUpdate = new Runnable() {
@@ -279,39 +303,62 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
             }
             frame.removeCallbacks(frameUpdate);
 
-            Point memeNewPosition = new Point(gameBoard.getMemeX(), gameBoard.getMemeY());
-            Point dogeNewPosition = new Point(gameBoard.getDogeX(), gameBoard.getDogeY());
-            memeNewPosition.x = memeNewPosition.x + memeVelocity.x;
-            if (memeNewPosition.x > memeMaxX || memeNewPosition.x < 5) {
-                memeVelocity.x *= -1;
-            }
-            memeNewPosition.y = memeNewPosition.y + memeVelocity.y;
-            if (memeNewPosition.y > memeMaxY || memeNewPosition.y < 5) {
-                memeVelocity.y *= -1;
-            }
+            Point playerNewPosition = new Point(gameBoard.getPlayerX(), gameBoard.getPlayerY());
+            Point targetNewPosition = new Point(gameBoard.getTargetX(), gameBoard.getTargetY());
+            Point obstacle1NewPosition = new Point(gameBoard.getObstacle1X(), gameBoard.getObstacle1Y());
+            Point obstacle2NewPosition = new Point(gameBoard.getObstacle2X(), gameBoard.getObstacle2Y());
 
-            updateDogeVelocity();
-            dogeNewPosition.y = dogeNewPosition.y + dogeVelocity.y;
-            if (dogeNewPosition.y > dogeMaxY) {
+            updatePlayerVelocity();
+            playerNewPosition.y = playerNewPosition.y + playerVelocity.y;
+            if (playerNewPosition.y > playerMaxY) {
                 // return doge to original position if it overshoots
-                dogeNewPosition.y = dogeMaxY;
+                playerNewPosition.y = playerMaxY;
                 performJump = false;
                 button.setEnabled(true);
             }
 
-            gameBoard.setMemePosition(memeNewPosition.x, memeNewPosition.y);
-            gameBoard.setDogePosition(dogeNewPosition.x, dogeNewPosition.y);
+            targetNewPosition.x = targetNewPosition.x + targetVelocity.x;
+            if (targetNewPosition.x > memeMaxX || targetNewPosition.x < 5) {
+                targetVelocity.x *= -1;
+            }
+            targetNewPosition.y = targetNewPosition.y + targetVelocity.y;
+            if (targetNewPosition.y > memeMaxY || targetNewPosition.y < 5) {
+                targetVelocity.y *= -1;
+            }
+
+            obstacle1NewPosition.x = obstacle1NewPosition.x + obstacle1Velocity.x;
+            if (obstacle1NewPosition.x > memeMaxX || obstacle1NewPosition.x < 5) {
+                obstacle1Velocity.x *= -1;
+            }
+            obstacle1NewPosition.y = obstacle1NewPosition.y + obstacle1Velocity.y;
+            if (obstacle1NewPosition.y > memeMaxY || obstacle1NewPosition.y < 5) {
+                obstacle1Velocity.y *= -1;
+            }
+
+            obstacle2NewPosition.x = obstacle2NewPosition.x + obstacle2Velocity.x;
+            if (obstacle2NewPosition.x > memeMaxX || obstacle2NewPosition.x < 5) {
+                obstacle2Velocity.x *= -1;
+            }
+            obstacle2NewPosition.y = obstacle2NewPosition.y + obstacle2Velocity.y;
+            if (obstacle2NewPosition.y > memeMaxY || obstacle2NewPosition.y < 5) {
+                obstacle2Velocity.y *= -1;
+            }
+
+            gameBoard.setPlayerPosition(playerNewPosition.x, playerNewPosition.y);
+            gameBoard.setTargetPosition(targetNewPosition.x, targetNewPosition.y);
+            gameBoard.setObstacle1Position(obstacle1NewPosition.x, obstacle1NewPosition.y);
+            gameBoard.setObstacle2Position(obstacle2NewPosition.x, obstacle2NewPosition.y);
             gameBoard.invalidate();
             frame.postDelayed(frameUpdate, getFrameRate());
         }
     };
 
-    private void updateDogeVelocity() {
-        if (dogeVelocity == null) {
-            dogeVelocity = new Point(0, 0);
+    private void updatePlayerVelocity() {
+        if (playerVelocity == null) {
+            playerVelocity = new Point(0, 0);
         }
         if (!performJump) {
-            dogeVelocity.y = 0;
+            playerVelocity.y = 0;
             frameCount = 0;
         } else {
             float currentTimeInSec = frameCount * getFrameTime();
@@ -329,7 +376,7 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                 double dogeDYInMeters = currentVelocityInMeterPerSec * getFrameTime();
 
                 // convert meter back to pixel to get change in y
-                dogeVelocity.y = (int) -(dogeDYInMeters * pixelToMeterRatio);
+                playerVelocity.y = (int) -(dogeDYInMeters * pixelToMeterRatio);
 
                 frameCount++;
 
@@ -349,7 +396,7 @@ public class GameActivity extends AppCompatActivity implements View.OnTouchListe
                 double dogeDYInMeters = currentVelocityInMeterPerSec * getFrameTime();
 
                 // convert meter back to pixel to get change in y
-                dogeVelocity.y = (int) (dogeDYInMeters * pixelToMeterRatio);
+                playerVelocity.y = (int) (dogeDYInMeters * pixelToMeterRatio);
 
                 frameCount++;
             }

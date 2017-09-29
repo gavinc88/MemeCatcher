@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="margin">12dp</dimen>
+    <dimen name="min_velocity">1dp</dimen>
+    <dimen name="max_velocity">5dp</dimen>
+    <dimen name="obstacle_velocity">2dp</dimen>
 
     <dimen name="doge_width">70dp</dimen>
     <dimen name="doge_height">80dp</dimen>
